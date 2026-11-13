@@ -1,0 +1,39 @@
+# 家庭通知中控台 —— Docker Compose 部署
+#
+# 两个服务共享同一个数据卷（fnc-data），因此 SQLite 数据库与上传图片只存一份：
+#   - notify：看板 / 管理后台 / 消息接收接口（主服务，端口 8002）
+#   - bot   ：钉钉 Stream 机器人长连接（把钉钉消息推送到 notify）
+#
+# 不使用钉钉推送（例如只用企业微信回调，或纯演示）时，可只启动 notify：
+#   docker compose up -d notify
+#
+# 首次启动后，打开 http://<服务器IP>:8002/admin 完成初始化配置。
+
+services:
+  notify:
+    build: .
+    image: family-notice-console:latest
+    container_name: fnc-notify
+    ports:
+      - "8002:8002"
+    environment:
+      - NOTIFY_DATA_DIR=/app/data
+    volumes:
+      - fnc-data:/app/data
+    restart: unless-stopped
+
+  bot:
+    build: .
+    image: family-notice-console:latest
+    container_name: fnc-bot
+    command: ["sh", "-c", "python ding_stream_bot.py"]
+    environment:
+      - NOTIFY_DATA_DIR=/app/data
+    volumes:
+      - fnc-data:/app/data
+    restart: unless-stopped
+    depends_on:
+      - notify
+
+volumes:
+  fnc-data:

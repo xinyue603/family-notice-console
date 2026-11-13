@@ -1,0 +1,16 @@
+[Unit]
+Description=家庭通知中控台 · 钉钉 Stream 机器人（仅使用钉钉推送时启用）
+After=network.target
+
+[Service]
+Type=simple
+# 请将 YOUR_USER 改为实际运行用户，WorkingDirectory / ExecStart 改为实际路径
+User=YOUR_USER
+WorkingDirectory=/opt/family-notice-console
+ExecStart=/opt/family-notice-console/venv/bin/python ding_stream_bot.py
+Restart=always
+RestartSec=3
+Environment=NOTIFY_DATA_DIR=/opt/family-notice-console/data
+
+[Install]
+WantedBy=multi-user.target

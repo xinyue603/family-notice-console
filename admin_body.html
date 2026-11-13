@@ -1,0 +1,735 @@
+﻿</style>
+</head>
+<body>
+<!-- ============ 首次进入：强制设置口令 ============ -->
+<div class="gate" id="gate-setup">
+  <div class="gate-card">
+    <div class="gate-logo"><div class="logo">🏠</div><div><b>家庭通知 · 管理后台</b><small>FIRST RUN SETUP</small></div></div>
+    <h2>先给后台设一个口令</h2>
+    <p class="sub">检测到还没有设置过口令。口令只存在本机数据库里（PBKDF2 加盐哈希，不存明文），设置后每次进入后台都要输入。</p>
+    <div class="field">
+      <label>设置口令</label>
+      <div class="pw-wrap">
+        <input type="password" id="pw1" placeholder="至少 6 位，建议 8 位以上" oninput="checkStrength(this.value)" onkeydown="if(event.key==='Enter')doSetup()">
+        <span class="eye" onclick="togglePw('pw1',this)">👁</span>
+      </div>
+      <div class="strength" id="st"><i></i><i></i><i></i><i></i></div>
+      <span class="pw-hint" id="sthint">6 位起步；含大小写、数字、符号更安全</span>
+    </div>
+    <div class="field">
+      <label>再输一次</label>
+      <div class="pw-wrap">
+        <input type="password" id="pw2" placeholder="确认口令" onkeydown="if(event.key==='Enter')doSetup()">
+        <span class="eye" onclick="togglePw('pw2',this)">👁</span>
+      </div>
+    </div>
+    <div class="err" id="err-setup"></div>
+    <button class="btn primary wide" onclick="doSetup()">设置并进入后台</button>
+    <p class="gate-foot">忘记口令时，在服务器执行 <code>sqlite3 notify.db "DELETE FROM config WHERE key='admin_pwd'"</code> 即可重新设置。</p>
+  </div>
+</div>
+
+<!-- ============ 登录 ============ -->
+<div class="gate" id="gate-login">
+  <div class="gate-card">
+    <div class="gate-logo"><div class="logo">🏠</div><div><b>家庭通知 · 管理后台</b><small>ADMIN CONSOLE</small></div></div>
+    <h2>输入口令</h2>
+    <p class="sub">口令错误 5 次将锁定 5 分钟。</p>
+    <div class="field">
+      <label>口令</label>
+      <div class="pw-wrap">
+        <input type="password" id="pwd" placeholder="请输入管理口令" onkeydown="if(event.key==='Enter')doLogin()">
+        <span class="eye" onclick="togglePw('pwd',this)">👁</span>
+      </div>
+    </div>
+    <label class="rem"><input type="checkbox" id="remember" checked> 记住这台设备 30 天</label>
+    <div class="err" id="err-login"></div>
+    <button class="btn primary wide" onclick="doLogin()">进入后台</button>
+    <p class="gate-foot">口令只用于防止家人误改配置，请勿使用常用密码。</p>
+  </div>
+</div>
+
+<div class="layout" id="app" style="display:none">
+  <aside>
+    <div class="side-brand">
+      <div class="logo">🏠</div>
+      <div><b>家庭通知</b><small>ADMIN CONSOLE</small></div>
+    </div>
+    <div class="nav active" data-tab="sys"><span class="ico">⚙️</span>系统设置</div>
+    <div class="nav" data-tab="data"><span class="ico">🗂️</span>数据管理</div>
+    <div class="nav" data-tab="tags"><span class="ico">🏷️</span>标签管理</div>
+    <div class="nav" data-tab="bot"><span class="ico">🔌</span>机器人配置</div>
+    <div class="nav" data-tab="board"><span class="ico">🖥️</span>看板展示管理</div>
+    <div class="nav" data-tab="ha"><span class="ico">🏠</span>HA智能接入管理</div>
+    <div class="nav" data-tab="loc"><span class="ico">📍</span>设置天气位置</div>
+    <div class="side-foot">
+      <div class="back out" onclick="doLogout()" style="cursor:pointer">退出登录</div>
+      <a class="back" href="/">← 返回看板</a>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ============ 系统设置 ============ -->
+        <section id="page-sys">
+      <div class="page-head">
+        <div>
+          <h1>系统设置</h1>
+          <p>运行状态、数据与安全、备份与恢复。</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>运行状态</h2><span class="hint" id="botStateHint">—</span></div>
+        <div class="panel-body">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+              <span class="live-badge off" id="bdChannel"><i></i>群消息渠道</span>
+              <span style="font-size:12.5px;color:var(--text2)" id="chText">—</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+              <span class="live-badge off" id="bdHa"><i></i>家庭数据源</span>
+              <span style="font-size:12.5px;color:var(--text2)" id="haText">—</span>
+            </div>
+          </div>
+          <div class="warn-bar info" style="margin-top:16px">
+            <span>📄</span>
+            <span id="botStatusText" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;word-break:break-all">点击右上角「检测状态」查看服务运行情况。</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>数据与安全</h2></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>自动保留天数</label>
+              <select id="cfgRetention">
+                <option value="0">不自动清理（推荐）</option>
+                <option value="7">保留 7 天</option>
+                <option value="30">保留 30 天</option>
+                <option value="90">保留 90 天</option>
+                <option value="365">保留 365 天</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>图片占用</label>
+              <input type="text" id="imgInfo" readonly value="—">
+              <span class="help">删除消息不会自动删除图片，要回收空间请在「数据管理」中清除。</span>
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label>修改管理口令</label>
+              <div style="display:flex;gap:9px;flex-wrap:wrap">
+                <input type="password" id="pwdOld" placeholder="当前口令" style="flex:1;min-width:150px">
+                <input type="password" id="pwdNew" placeholder="新口令（至少 6 位）" style="flex:1;min-width:150px">
+                <input type="password" id="pwdNew2" placeholder="确认新口令" style="flex:1;min-width:150px">
+                <button class="btn primary" onclick="changePwd()">保存口令</button>
+              </div>
+              <span class="help">修改后所有已登录设备立即失效，需要重新登录。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>备份与恢复</h2><span class="hint">notify.db 单文件，含全部消息与配置</span></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>下载备份</label>
+              <button class="btn" onclick="doBackup()">⬇ 下载数据库备份</button>
+              <span class="help">文件名带时间戳，例如 notify-20261112-110200.db。</span>
+              <div class="file-card show" style="flex-direction:column;align-items:flex-start;gap:3px;line-height:1.9">
+                <div style="color:var(--text3);font-size:12px" id="bkInfo">读取中…</div>
+              </div>
+            </div>
+            <div class="field">
+              <label>上传恢复</label>
+              <div class="drop" id="drop" onclick="document.getElementById('fileInput').click()"
+                   ondragover="event.preventDefault();this.classList.add('over')"
+                   ondragleave="this.classList.remove('over')"
+                   ondrop="onDrop(event)">
+                <div class="ico">📥</div>
+                <b>点击选择，或把 .db 文件拖进来</b>
+                <span>仅接受 SQLite 数据库文件，最大 50 MB<br>上传后会校验完整性与表结构</span>
+              </div>
+              <div class="file-card" id="filecard">
+                <span>🗄️</span><span class="nm" id="fname"></span>
+                <span class="muted" id="fsize"></span>
+                <span class="x" onclick="clearFile(event)">✕</span>
+              </div>
+              <input type="file" id="fileInput" accept=".db,.sqlite,.sqlite3" hidden onchange="onPick(this)">
+              <button class="btn danger" style="margin-top:10px;width:100%;justify-content:center" onclick="doRestore()">开始恢复（覆盖当前数据）</button>
+            </div>
+          </div>
+          <div class="warn-bar">
+            <span>⚠️</span>
+            <span>恢复是<b>整体覆盖</b>：当前消息、标签、口令、机器人配置都会被上传的库替换。执行前会把现库另存到 <code>backups/</code>，恢复完成后需要重新登录。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-data" style="display:none">
+      <div class="page-head">
+        <div>
+          <h1>数据管理</h1>
+          <p>清理无引用图片、最近消息、消息接收参数。</p>
+        </div>
+      </div>
+<div class="bulkbar" id="bulkbar">
+          <span>已选 <b id="selN">0</b> 条</span>
+          <span class="sp">
+            <button class="btn danger" onclick="deleteSelected()">删除所选</button>
+            <button class="btn" onclick="clearSel()">取消选择</button>
+          </span>
+        </div>
+      <div class="panel">
+        <div class="panel-head"><h2>清理无引用图片</h2><span class="hint">uploads/ 目录 · 按月分目录</span></div>
+        <div class="panel-body">
+          <div class="stat">
+            <div class="s"><b class="ph" id="sScan">—</b><span>扫描到图片</span></div>
+            <div class="s hot"><b class="ph" id="sOrphan">—</b><span>无引用</span></div>
+            <div class="s"><b class="ph" id="sSize">—</b><span>可释放空间</span></div>
+            <div class="s"><b class="ph" id="sKept">—</b><span>仍在使用</span></div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button class="btn" id="btnScan" onclick="scanImages()">🔍 扫描</button>
+            <button class="btn danger" id="btnClean" onclick="cleanImages()" disabled>🗑 清理无引用图片</button>
+            <span class="hint" id="imgScanHint" style="font-size:12px"></span>
+          </div>
+          <div class="warn-bar" style="margin-top:16px">
+            <span>⚠️</span>
+            <div>扫描结果<b>先只展示、不删除</b>，点「清理」后还需二次确认。判定依据是 <b>messages.image</b> 字段与文件名比对；<b>按月分目录</b>遍历，不递归删除目录本身。清理前自动打一次数据库快照，防止误删。<br>注意：图片压到 1920px 且仅保留一个月的引用关系，删掉就<b>找不回来</b>，请确认没有被别处引用的图之后再执行。</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>最近消息</h2><span class="hint" id="msgTotal">共 0 条</span></div>
+        <div class="tbl-tools"><select id="fTag" onchange="loadMessages()"><option value="">全部标签</option></select><input type="text" id="fQ" placeholder="搜内容 / 发送人" onkeydown="if(event.key==='Enter')loadMessages()"><button class="btn" onclick="loadMessages()">刷新</button></div>
+        <table>
+          <thead><tr>
+            <th style="width:38px"><input type="checkbox" class="pick" id="pickAll" onchange="toggleAll(this)"></th>
+            <th style="width:48px">ID</th><th style="width:104px">标签</th><th style="width:96px">发送人</th>
+            <th>内容</th><th style="width:104px">时间</th><th style="width:148px;text-align:right">操作</th>
+          </tr></thead>
+          <tbody id="msgRows"></tbody>
+        </table>
+        <div class="panel-body" style="border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="muted">常驻消息不受保留天数影响，会一直显示在看板顶部的「常驻看板」区。</span>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <span class="muted">清理</span>
+            <input type="number" id="cleanDays" value="30" min="1" max="3650" style="width:64px;padding:6px 8px;text-align:center">
+            <span class="muted">天前的消息</span>
+            <button class="btn" onclick="doCleanup()">立即清理</button>
+            <button class="btn" onclick="selAllRows()">全选本页</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>消息接收参数</h2><span class="hint">两种渠道共用</span><button class="btn primary" onclick="saveRecv()">保存</button></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>去重窗口（秒）</label>
+              <input type="number" id="cfgDedup" min="5" max="600">
+              <span class="help">钉钉偶发重投，同一 msgId 在窗口内只记一次。</span>
+            </div>
+            <div class="field">
+              <label>标签最大长度</label>
+              <input type="number" id="cfgTagLen" min="2" max="24">
+              <span class="help">超过长度的 #xxx 不当作标签，按正文处理。</span>
+            </div>
+            <div class="field">
+              <label>图片最大边长（px）</label>
+              <input type="number" id="cfgImgEdge" min="0" max="4096" step="120">
+              <span class="help">0 表示不压缩。装了 Pillow 才会生效，否则存原图。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-tags" style="display:none">
+<div class="page-head">
+        <div>
+          <h1>标签管理</h1>
+          <p>标签决定看板徽章的颜色、图标与语音播报。机器人不校验标签是否存在，未知标签走「普通通知」样式。</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn primary" onclick="openDlg()">+ 新增标签</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>现有标签</h2><span class="hint">改完刷新看板即生效</span></div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:64px">颜色</th>
+              <th>标签名</th>
+              <th style="width:110px">语音播报</th>
+              <th style="width:90px">排序</th>
+              <th style="width:150px;text-align:right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tagRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="page-bot" style="display:none">
+      <div class="page-head">
+        <div>
+          <h1>机器人配置</h1>
+          <p>群消息渠道 · 接入凭证。凭证这块跟着渠道变：选钉钉StreamBot 就是「接入凭证 · 钉钉」，选企业微信WeComBot 就是「接入凭证 · 企业微信」。切换渠道需重连才生效。</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn" onclick="loadBotStatus()">检测状态</button>
+          <button class="btn primary" onclick="saveChannel(true)">保存并重连</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>群消息渠道</h2><span class="hint">二选一 · 切换后需重连</span></div>
+        <div class="panel-body">
+          <div class="im-pick">
+            <div class="im-opt on" data-im="ding" onclick="pickIM('ding')">
+              <span class="ck">✓</span>
+              <div class="t">🔷 钉钉 StreamBot</div>
+              <div class="d">长连接模式，机器人主动连钉钉网关，<b class="good">不需要公网 IP</b>、不需要端口映射。</div>
+            </div>
+            <div class="im-opt" data-im="wecom" onclick="pickIM('wecom')">
+              <span class="ck">✓</span>
+              <div class="t">💼 企业微信 WeComBot</div>
+              <div class="d">智能机器人回调模式，需要企微能回调到本机，<b class="warn">必须有公网入口</b>。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="credDing">
+        <div class="panel-head"><h2>接入凭证 · 钉钉</h2><span class="hint">来自钉钉开放平台 · 企业内部应用</span></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>AppKey（Client ID）</label>
+              <input type="text" id="cfgKey" placeholder="dingxxxxxxxxxxxx">
+            </div>
+            <div class="field">
+              <label>AppSecret（Client Secret）</label>
+              <div class="pw-wrap">
+                <input type="password" id="cfgSecret" placeholder="留空表示不修改">
+                <span class="eye" onclick="togglePw('cfgSecret',this)">👁</span>
+              </div>
+              <span class="help" id="secretHint">已保存的密钥不会明文回显，留空即保持不变。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="credWecom" style="display:none">
+        <div class="panel-head"><h2>接入凭证 · 企业微信</h2><span class="hint">企业微信管理后台 · 自建应用 / 智能机器人</span></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>企业 CorpID</label>
+              <input type="text" id="cfgWecomCorp" placeholder="ww1234567890abcdef">
+            </div>
+            <div class="field">
+              <label>应用 AgentID</label>
+              <input type="text" id="cfgWecomAgent" placeholder="1000002">
+            </div>
+            <div class="field">
+              <label>应用 Secret</label>
+              <div class="pw-wrap">
+                <input type="password" id="cfgWecomSecret" placeholder="留空表示不修改">
+                <span class="eye" onclick="togglePw('cfgWecomSecret',this)">👁</span>
+              </div>
+              <span class="help" id="wecomSecretHint">已保存的密钥不会明文回显，留空即保持不变。</span>
+            </div>
+            <div class="field">
+              <label>接收消息 Token</label>
+              <input type="text" id="cfgWecomToken" placeholder="回调配置里的 Token">
+              <span class="help">企微后台「接收消息服务器配置」里的 Token。</span>
+            </div>
+            <div class="field">
+              <label>EncodingAESKey（43 位）</label>
+              <div class="pw-wrap">
+                <input type="password" id="cfgWecomAes" placeholder="留空表示不修改">
+                <span class="eye" onclick="togglePw('cfgWecomAes',this)">👁</span>
+              </div>
+              <span class="help" id="wecomAesHint">必须是 43 位，长度不对会导致回调验签失败。</span>
+            </div>
+            <div class="field">
+              <label>回调 URL（填到企微后台）</label>
+              <input type="text" id="cfgWecomCallback" readonly>
+              <span class="help">需公网可达。企微后台「接收消息服务器配置」里粘贴这个地址。</span>
+            </div>
+          </div>
+          <div class="warn-bar" style="margin-top:16px">
+            <span>⚠️</span>
+            <span>企业微信接收群消息必须由企微服务器<b>主动回调</b>到公网地址。家庭网络通常是没有公网 IP 的内网环境，需先做端口映射或内网穿透，否则配置再对也收不到消息。另需在企微后台把出口 IP 加入<b>可信 IP 白名单</b>。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-board" style="display:none">
+      <div class="page-head">
+        <div>
+          <h1>看板展示管理</h1>
+          <p>看板展示 · 看板显示偏好。</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn primary" onclick="saveBoard()">保存设置</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>看板展示</h2></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>首页显示条数</label>
+              <input type="number" id="cfgLimit" min="5" max="200">
+            </div>
+            <div class="field">
+              <label>刷新间隔（秒）</label>
+              <input type="number" id="cfgRefresh" min="1" max="60">
+            </div>
+            <div class="field">
+              <label>看板列数</label>
+              <select id="cfgCols">
+                <option value="auto">自动（≥1000px 双列）</option>
+                <option value="1">固定单列（大字，适合远看）</option>
+                <option value="2">固定双列</option>
+              </select>
+              <span class="help">竖屏 1080×1920 自动走双列；嫌字小就切单列，字号会跟着卡片宽度放大。</span>
+            </div>
+            <div class="field">
+              <label>默认主题</label>
+              <select id="cfgTheme"><option value="dark">深色</option><option value="light">浅色</option></select>
+            </div>
+            <div class="field">
+              <label>语音播报</label>
+              <select id="cfgSpeak"><option value="1">默认开启</option><option value="0">默认关闭</option></select>
+            </div>
+            <div class="field">
+              <label>播报语速</label>
+              <input type="number" id="cfgRate" min="0.6" max="1.6" step="0.05">
+            </div>
+            <div class="field">
+              <label>显示发送人姓名</label>
+              <select id="cfgShowSender"><option value="1">显示（senderNick）</option><option value="0">不显示</option></select>
+            </div>
+            <div class="field">
+              <label>显示来源群名</label>
+              <select id="cfgShowGroup"><option value="0">不显示（推荐）</option><option value="1">显示</option></select>
+              <span class="help">家庭只有一个群时建议关闭，省一行空间。</span>
+            </div>
+            <div class="field">
+              <label>自动翻页</label>
+              <select id="cfgAutoScroll"><option value="0">关闭</option><option value="1">开启（超出屏幕时自动下翻）</option></select>
+            </div>
+            <div class="field">
+              <label>翻页间隔（秒）</label>
+              <input type="number" id="cfgScrollSec" min="5" max="600">
+            </div>
+            <div class="field">
+              <label>常驻消息上限</label>
+              <input type="number" id="cfgPinLimit" min="1" max="20">
+              <span class="help">超过上限时后台会提示先取消一条。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>看板显示偏好</h2><span class="hint">控制「家庭状态」卡里显示哪些内容</span></div>
+        <div class="panel-body">
+          <div class="pref-list" id="prefList">
+            <div class="pref" data-key="ha_show_offline"><span class="pft">显示外出成员</span>
+              <span class="pfd">关掉后只列在家的人，头像行更清爽</span>
+              <span class="pfs" id="pfsOffline"></span></div>
+            <div class="pref" data-key="ha_show_zero_power"><span class="pft">显示 0 W 分路</span>
+              <span class="pfd">关掉后只列真正在用电的分路</span>
+              <span class="pfs" id="pfsZero"></span></div>
+            <div class="pref" data-key="ha_show_lights"><span class="pft">显示已开启的灯 <b class="num">14 盏白名单</b></span>
+              <span class="pfd">客厅灯带 / 书房灯 / 储物间灯 / 次卧灯 / 次卧门口筒灯 / 示例房间吸顶灯 / 洗手间灯 / 学习吊灯 / 阳台灯 / 智能台灯 / 主卧灯 / 餐厅灯带 / 厨房灯 / 餐厅灯</span>
+              <span class="pfs" id="pfsLights"></span></div>
+            <div class="pref" data-key="ha_show_climates"><span class="pft">显示已开启的空调 <b class="num">5 台白名单</b></span>
+              <span class="pfd">主卧 / 次卧 / 客厅 / 示例房间 / 书房，只显示开着的，带当前温度和模式</span>
+              <span class="pfs" id="pfsClimates"></span></div>
+            <div class="pref" data-key="ha_show_tv"><span class="pft">显示电视状态 <b class="num">示例电视</b></span>
+              <span class="pfd">客厅电视打开时显示，关机不占位</span>
+              <span class="pfs" id="pfsTv"></span></div>
+          </div>
+          <div class="warn-bar info" style="margin-top:16px">
+            <span>💡</span>
+            <span>三个新开关各管各的：灯、空调、电视关掉后该类别整体不显示（连图标一起消失），不会留空白。三类都没开时「已开启」整行隐藏，卡片自动变矮。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-ha" style="display:none">
+      <div class="page-head">
+        <div>
+          <h1>HA智能接入管理</h1>
+          <p>接入总开关 · 家庭数据源 · 设备映射 · 成员与传感器映射。只读接入，供看板「家庭状态」卡使用。</p>
+        </div>
+      </div>
+
+      <!-- V6-1：家庭状态接入总开关（点一下即保存，联动看板与天气位置来源） -->
+      <div class="master" id="masterSw">
+        <div class="mi">🏠</div>
+        <div>
+          <div class="mt">家庭状态接入</div>
+          <div class="md">启用后看板显示【家庭状态】卡（在家 / 用电 / 温度 / 灯 / 空调）；关闭后整卡不显示，
+            「设置天气位置」的位置来源自动改为「手动指定城市」。切换即时生效，不影响消息接入与后台配置。</div>
+        </div>
+        <span class="sw on" id="haSw" onclick="toggleHa()" title="启用 / 关闭"></span>
+        <span class="sw-state" id="haSwState">已启用</span>
+      </div>
+
+      <div class="panel" id="haSrcPanel">
+        <div class="panel-head"><h2>家庭数据源 · Home Assistant</h2><span class="hint" id="haSrcHint">只读接入 · 供看板展示</span><button class="btn primary" onclick="saveHa()">保存</button></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>服务器地址</label>
+              <input type="text" id="cfgHaBase" placeholder="http://homeassistant.local:8123">
+              <span class="help">内网地址即可，末尾不要带斜杠。</span>
+            </div>
+            <div class="field">
+              <label>长期访问令牌（LLAT）</label>
+              <div class="pw-wrap">
+                <input type="password" id="cfgHaToken" placeholder="留空表示不修改">
+                <span class="eye" onclick="togglePw('cfgHaToken',this)">👁</span>
+              </div>
+              <span class="help" id="haTokenHint">已保存的令牌不会明文回显，留空即保持不变。</span>
+            </div>
+            <div class="field">
+              <label>看板刷新间隔（秒）</label>
+              <input type="number" id="cfgHaInterval" min="10" max="600">
+              <span class="help">建议 30–60 秒。多块看板共享后端一次拉取，不会成倍压 HA。</span>
+            </div>
+            <div class="field">
+              <label>连接状态</label>
+              <div style="display:flex;align-items:center;gap:9px;margin-top:2px">
+                <span class="live-badge off" id="haBadge"><i></i>未检测</span>
+                <button class="btn" onclick="testHA()">测试连接</button>
+              </div>
+              <span class="help" id="haTestHint">保存后点「测试连接」验证令牌是否可用。</span>
+            </div>
+          </div>
+          <div class="warn-bar" style="margin-top:16px">
+            <span>🔑</span>
+            <span>用长期访问令牌而不是账号密码：HA 的登录令牌只有 30 分钟有效期，用密码就得把 HA 密码留在服务器上。长期令牌有效期 10 年，直接放请求头即可。<b>生成方式</b>：HA 左下角个人头像 → 安全 → 长期访问令牌 → 创建，令牌只显示一次，当场复制。</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="mapPanel">
+        <div class="panel-head"><h2>设备映射</h2><span class="hint">搜索已同步设备 → 点选加入列表 · 可改名 / 启停 / 删除</span></div>
+        <div class="panel-body">
+          <!-- V6-2：原来那段指示灯说明换成搜索框，点结果即加入映射表 -->
+          <div class="dev-search-wrap">
+            <div class="dev-search">
+              <span class="si">🔍</span>
+              <input id="devSearch" placeholder="输入设备名称或 entity_id，检索已同步的 HA 设备…"
+                     autocomplete="off" oninput="devSearch(this.value)" onfocus="devSearch(this.value)">
+              <span class="sc" id="devCount">已同步 — 个</span>
+            </div>
+            <div class="dev-results" id="devResults"></div>
+          </div>
+          <table class="maptbl">
+            <colgroup><col style="width:190px"><col style="width:62px"><col>
+              <col style="width:110px"><col style="width:82px"><col style="width:42px"></colgroup>
+            <thead><tr><th>看板显示</th><th>类型</th><th>HA实体名称</th>
+              <th>当前状态</th><th>是否启用</th><th></th></tr></thead>
+            <tbody id="mapBody"><tr><td colspan="6" style="color:var(--text3)">加载中…</td></tr></tbody>
+          </table>
+          <div class="map-actions">
+            <button class="btn primary" id="btnMapSave" onclick="mapSave()">保存映射</button>
+            <button class="btn" id="btnMapReset" onclick="mapReset()">恢复默认</button>
+            <span class="map-cnt" id="mapCnt"></span>
+            <span class="map-tip" id="mapTip"></span>
+          </div>
+          <div class="warn-bar" id="mapWarn" style="display:none"><span>⚠️</span><span id="mapWarnTxt"></span></div>
+        </div>
+      </div>
+
+      <!-- ===== V7：成员 / 用电 / 温度 三组 sensor 映射（原来写死在 main.py） ===== -->
+      <div class="panel" id="sensorPanel">
+        <div class="panel-head"><h2>成员与传感器映射</h2>
+          <span class="hint">搜索 sensor 实体 → 选类型 → 点选加入 · 决定看板「在家 / 用电 / 温度」</span></div>
+        <div class="panel-body">
+          <div class="dev-bar">
+            <div class="dev-search-wrap">
+              <div class="dev-search">
+                <span class="si">🔍</span>
+                <input id="sensSearch" placeholder="输入名称或 entity_id，检索已同步的 sensor 实体…"
+                       autocomplete="off" oninput="sensDoSearch(this.value)" onfocus="sensDoSearch(this.value)">
+              </div>
+              <div class="dev-results" id="sensResults"></div>
+            </div>
+            <label class="addas">加入为
+              <select id="sensAddAs" onchange="sensDoSearch(document.getElementById('sensSearch').value)">
+                <option value="people">成员（在家）</option>
+                <option value="power">用电分路</option>
+                <option value="temp">房间温度</option>
+                <option value="total">用电总表</option>
+              </select>
+            </label>
+            <span class="dev-count" id="sensCount">已同步 — 个 sensor</span>
+          </div>
+          <table class="maptbl">
+            <colgroup><col style="width:190px"><col style="width:88px"><col>
+              <col style="width:110px"><col style="width:82px"><col style="width:42px"></colgroup>
+            <thead><tr><th>显示名</th><th>类型</th><th>HA实体名称</th>
+              <th>当前值</th><th>是否启用</th><th></th></tr></thead>
+            <tbody id="sensBody"><tr><td colspan="6" style="color:var(--text3)">加载中…</td></tr></tbody>
+          </table>
+          <div class="map-actions">
+            <button class="btn primary" id="btnSensSave" onclick="sensSave()">保存映射</button>
+            <button class="btn" id="btnSensReset" onclick="sensReset()">恢复默认</button>
+            <span class="map-cnt" id="sensCnt"></span>
+            <span class="map-tip" id="sensTip"></span>
+          </div>
+          <div class="sens-note">
+            「是否启用」关掉 = 保留这行但不参与看板统计；「删除」= 从映射里移除。显示名只影响看板文字，
+            取数用的是 entity_id；要换实体就删掉这行再搜索添加。「用电总表」只允许一条。
+            改完点保存，看板下一个刷新周期（≤ 刷新间隔）生效。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 设置天气位置（V5，V6 改名） ============ -->
+    <section id="page-loc" style="display:none">
+      <div class="page-head">
+        <div>
+          <h1>设置天气位置</h1>
+          <p>看板顶部那条滚动的天气，位置就取自这里。只影响天气展示，跟 HA 设备、消息接入都没关系。</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn" onclick="testWeather()">测试取数</button>
+          <button class="btn primary" onclick="saveLoc()">保存</button>
+        </div>
+      </div>
+
+      <div class="link-note" id="locLink"><span>ℹ️</span><span id="locLinkTxt"></span></div>
+      <div class="panel">
+        <div class="panel-head"><h2>位置来源</h2><span class="hint">二选一</span></div>
+        <div class="panel-body">
+          <div class="srcpick-list">
+            <div class="srcpick on" id="pickHa" onclick="pickLoc('ha')">
+              <div class="sp-h"><span class="rad"></span>跟随 Home Assistant
+                <span class="badge-ok">推荐</span></div>
+              <div class="sp-d">直接读 HA 配置里的家：位置名称 + 经纬度。以后在 HA 里改了位置，这里自动跟着变，不用两边维护。</div>
+              <div class="sp-read" id="locHaRead"><span>现读到</span><b>—</b></div>
+            </div>
+            <div class="srcpick" id="pickCity" onclick="pickLoc('city')">
+              <div class="sp-h"><span class="rad"></span>手动指定城市</div>
+              <div class="sp-d">不依赖 HA，直接按城市取中国天气网的数据。适合 HA 位置填得不准、或者想固定看老家天气。</div>
+              <div class="sp-form">
+                <label>城市名称<input type="text" id="cfgCityName" placeholder="留空用接口返回的城市"></label>
+                <label>城市代码<input type="text" id="cfgCityCode" placeholder="101020100"></label>
+                <span class="tip">城市代码 = 中国天气网城市页地址栏里那串 <code>101xxxxxx</code></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>天气源与显示</h2><span class="hint">两个来源都取不到时，顶部那条自动隐藏</span></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="fld"><span>天气实体（跟随 HA 时用）</span>
+              <select id="cfgWxEntity"><option value="">自动（取第一个 weather.*）</option></select></label>
+            <label class="fld"><span>刷新间隔（分钟）</span>
+              <input type="number" id="cfgWxInterval" min="1" max="720" value="10"></label>
+          </div>
+          <div class="pref-list" style="margin-top:8px">
+            <div class="pref">
+              <div>
+                <div class="pft">在看板顶部滚动播放天气</div>
+                <div class="pfd">关掉后顶部只留标题和时间，跟原来一样</div>
+              </div>
+              <span class="pfs" id="pfsWeather"></span>
+            </div>
+            <div class="pref">
+              <div>
+                <div class="pft">显示今日温度范围</div>
+                <div class="pfd">关掉只显示「位置 · 阴晴」，不显示 11~15℃</div>
+              </div>
+              <span class="pfs" id="pfsWxRange"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>效果预览</h2><span class="hint">按当前表单实际取一次（不落库）</span></div>
+        <div class="panel-body">
+          <div class="wx-demo" id="wxDemo" style="display:none">
+            <span class="wx-ico" id="pvIco">🌤️</span>
+            <div class="wx-mask"><div class="wx-track" id="pvTrack"></div></div>
+          </div>
+          <div class="ro-list">
+            <div class="ro"><span>取数结果</span><b id="pvText">—</b></div>
+            <div class="ro"><span>数据来源</span><b id="pvSrc">—</b></div>
+            <div class="ro"><span>说明</span><b id="pvNote">点右上角「测试取数」</b></div>
+          </div>
+          <div class="hint-line">
+            取数失败时保留上一次的结果，连续失败 3 次才把顶部那条藏起来，不会让顶部突然空一块。
+            位置名称只用于显示，取数范围用的是经纬度（HA）或城市代码（手动）。
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 标签编辑弹窗 -->
+<div class="modal" id="dlg">
+  <div class="dialog">
+    <div class="dialog-head" id="dlgTitle">新增标签</div>
+    <div class="dialog-body">
+      <div class="field">
+        <label>标签名 <span class="req">*</span></label>
+        <input type="text" id="tagName" placeholder="例如：采购" maxlength="12">
+        <span class="help">不能包含空格、# 与冒号，最长 12 个字符。</span>
+      </div>
+      <div class="field">
+        <label>图标</label>
+        <div class="icon-row">
+          <input class="icon-box" id="iconBox" maxlength="4" value="🛒" aria-label="已选图标">
+          <div class="icon-side">
+            <input type="text" id="iconSearch" placeholder="搜索图标：紧急 / 学习 / 买菜 / 时间…" oninput="renderIcons()">
+            <div class="icon-cats" id="iconCats"></div>
+          </div>
+        </div>
+        <div class="icon-grid" id="iconGrid"></div>
+        <span class="help">内置 60 个常用图标，网格内可滚动；也可在左边方框直接粘贴任意 emoji。</span>
+      </div>
+      <div class="field">
+        <label>颜色</label>
+        <div class="color-row" id="colorRow">
+          <span class="color-dot sel" data-c="#3b82f6" style="background:#3b82f6"></span>
+          <span class="color-dot" data-c="#ef4444" style="background:#ef4444"></span>
+          <span class="color-dot" data-c="#10b981" style="background:#10b981"></span>
+          <span class="color-dot" data-c="#a855f7" style="background:#a855f7"></span>
+          <span class="color-dot" data-c="#f59e0b" style="background:#f59e0b"></span>
+          <span class="color-dot" data-c="#64748b" style="background:#64748b"></span>
+          <span class="color-dot" data-c="#06b6d4" style="background:#06b6d4"></span>
+          <span class="color-dot" data-c="#ec4899" style="background:#ec4899"></span>
+        </div>
+      </div>
+      <div class="field">
+        <label>排序值（越小越靠前）</label>
+        <input type="number" id="tagSort" value="50" min="0" max="999" style="width:110px">
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" onclick="closeDlg()">取消</button>
+      <button class="btn primary" onclick="saveTag()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>

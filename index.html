@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家庭通知中控台</title>
+<style>
+  :root{
+    --bg:#0b0f17; --surface:#141b26; --surface2:#1b2432; --surface3:#222d3d;
+    --border:rgba(255,255,255,.08); --border-hi:rgba(255,255,255,.16);
+    --text:#e8edf5; --text2:#9aa7b8; --text3:#64748b;
+    --accent:#5b9dff; --ok:#22c55e;
+    --radius:18px;
+    --c-blue:#3b82f6; --c-red:#ef4444; --c-green:#10b981; --c-purple:#a855f7;
+    --c-amber:#f59e0b; --c-slate:#64748b;
+  }
+  html[data-theme="light"]{
+    --bg:#f4f6fb; --surface:#ffffff; --surface2:#f7f9fc; --surface3:#eef2f8;
+    --border:rgba(15,23,42,.08); --border-hi:rgba(15,23,42,.16);
+    --text:#0f172a; --text2:#5b6b82; --text3:#8a99ad;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    transition:background .3s,color .3s;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(900px 500px at 12% -8%, rgba(91,157,255,.16), transparent 60%),
+      radial-gradient(700px 420px at 92% 4%, rgba(168,85,247,.12), transparent 62%);
+  }
+  .wrap{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:0 28px 90px}
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; gap:14px;
+    padding:15px 2px; margin-bottom:6px;
+    background:color-mix(in srgb, var(--bg) 80%, transparent);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:650;letter-spacing:.2px}
+  .brand .logo{
+    width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;
+    background:linear-gradient(145deg,#5b9dff,#7c5cff); box-shadow:0 6px 18px rgba(91,157,255,.32);
+  }
+  .brand small{display:block;font-size:10.5px;font-weight:400;color:var(--text3);letter-spacing:.8px;margin-top:3px}
+  .clock{margin-left:auto;display:flex;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums}
+  .clock b{font-size:23px;font-weight:620;letter-spacing:.5px}
+  .clock span{font-size:12.5px;color:var(--text2)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;
+    background:var(--surface2);border:1px solid var(--border);font-size:12.5px;color:var(--text2)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.16)}
+  .icon-btn{
+    width:38px;height:38px;border-radius:11px;display:grid;place-items:center;cursor:pointer;
+    background:var(--surface2);border:1px solid var(--border);color:var(--text2);
+    transition:.18s; font-size:15px; text-decoration:none;
+  }
+  .icon-btn:hover{background:var(--surface3);color:var(--text);border-color:var(--border-hi);transform:translateY(-1px)}
+  .icon-btn.on{color:var(--accent);border-color:rgba(91,157,255,.4);background:rgba(91,157,255,.12)}
+
+  /* ---------- 状态条 ---------- */
+  .statusbar{display:flex;align-items:center;gap:9px;margin:16px 0 4px;flex-wrap:wrap}
+  .chip{padding:5px 10px;border-radius:8px;font-size:11.5px;color:var(--text3);background:var(--surface2);border:1px solid var(--border)}
+  .chip.r{margin-left:auto}
+
+  /* ---------- 分组 ---------- */
+  .group{margin-top:30px}
+  .day{display:flex;align-items:center;gap:12px;margin:0 2px 16px;color:var(--text3);font-size:12px;letter-spacing:1.6px}
+  .day::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+  .cols{columns:var(--cols,2);column-gap:20px}
+
+  /* ---------- 常驻区 ---------- */
+  .pin-sec{margin-top:18px}
+  .pin-head{
+    display:flex;align-items:center;gap:9px;margin:0 2px 14px;
+    font-size:12px;letter-spacing:1.6px;color:#f0b25e;
+  }
+  .pin-head .ln{flex:1;height:1px;background:linear-gradient(90deg,rgba(245,158,11,.42),transparent)}
+  .card.pinned{
+    border-color:rgba(245,158,11,.32);
+    background:linear-gradient(180deg, rgba(245,158,11,.07), var(--surface2) 46%);
+    box-shadow:0 0 0 1px rgba(245,158,11,.06) inset;
+  }
+  .card.pinned::after{
+    content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;
+    background:radial-gradient(circle,rgba(245,158,11,.18),transparent 66%);pointer-events:none;
+  }
+  .pin-tag{
+    display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:6px;
+    font-size:10.5px;font-weight:600;color:#f0b25e;
+    background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.3);
+  }
+
+  /* ---------- 卡片 ---------- */
+  .card{
+    background:linear-gradient(180deg, var(--surface), var(--surface2));
+    border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px 20px 16px; margin-bottom:20px;
+    position:relative; overflow:hidden;
+    transition:transform .18s, border-color .18s, box-shadow .18s;
+    container-type:inline-size;   /* 字号跟着卡片实际宽度走，不依赖视口 */
+  }
+  .card:hover{transform:translateY(-2px);border-color:var(--border-hi);box-shadow:0 14px 34px rgba(0,0,0,.26)}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--c-slate));opacity:.92}
+  .card.is-new{animation:pop .5s ease-out}
+  @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+
+  .card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 11px;border-radius:9px;font-size:12.5px;font-weight:600;letter-spacing:.2px;
+    color:var(--c,var(--c-slate));
+    background:color-mix(in srgb, var(--c,var(--c-slate)) 15%, transparent);
+    border:1px solid color-mix(in srgb, var(--c,var(--c-slate)) 32%, transparent);
+  }
+  .badge .emoji{font-size:13.5px}
+  .time{margin-left:auto;font-size:12px;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .text{color:var(--text);word-break:break-word;white-space:pre-wrap}
+  /* 用 cqw 相对【卡片宽度】计算，单列/双列/手机自动得到合适字号 */
+  .text.xs{font-size:clamp(17px,3.6cqw,23px);line-height:1.7}
+  .text.sm{font-size:clamp(19px,4.4cqw,27px);line-height:1.62}
+  .text.md{font-size:clamp(22px,5.9cqw,34px);font-weight:550;line-height:1.45}
+  .text.lg{font-size:clamp(28px,7.8cqw,50px);font-weight:660;line-height:1.29;letter-spacing:.3px}
+
+  /* 图片完整展示：边框/底色只画在 img 自身，竖版图片不会留大片黑边 */
+  .shot{margin:2px 0 13px}
+  .frame{position:relative;width:fit-content;max-width:100%;margin:0 auto;line-height:0}
+  .frame img{
+    display:block;width:auto;max-width:100%;max-height:min(56vh,700px);
+    object-fit:contain;cursor:zoom-in;border-radius:13px;
+    border:1px solid var(--border);background:#070b12;
+    transition:filter .18s;
+  }
+  .frame img:hover{filter:brightness(1.06)}
+
+  /* ---------- 发送人署名 ---------- */
+  .who{
+    display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;
+    border-top:1px dashed var(--border);font-size:12.5px;color:var(--text3);
+  }
+  .av{
+    width:25px;height:25px;border-radius:50%;flex:none;
+    display:grid;place-items:center;font-size:11.5px;font-weight:680;color:#fff;
+    letter-spacing:0;text-shadow:0 1px 2px rgba(0,0,0,.28);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);
+  }
+  .who .nm{color:var(--text2);font-weight:550;letter-spacing:.2px}
+  .who .grp{
+    margin-left:auto;font-size:11.5px;color:var(--text3);opacity:.78;
+    max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  html[data-theme="light"] .av{text-shadow:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+
+  /* ---------- 空状态 ---------- */
+  .empty-state{text-align:center;padding:100px 20px;color:var(--text3)}
+  .empty-state .ico{font-size:44px;opacity:.5;margin-bottom:14px}
+  .empty-state h3{color:var(--text2);font-size:17px;font-weight:550;margin-bottom:8px}
+  .empty-state p{font-size:13.5px;line-height:1.8}
+  .empty-state code{background:var(--surface3);padding:2px 7px;border-radius:6px;color:var(--accent);font-size:12.5px}
+
+  /* ---------- lightbox ---------- */
+  .lb{position:fixed;inset:0;z-index:99;display:none;place-items:center;background:rgba(3,6,12,.93);
+      backdrop-filter:blur(8px);cursor:zoom-out;padding:40px}
+  .lb.show{display:grid}
+  .lb img{max-width:96vw;max-height:92vh;object-fit:contain;border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .lb .close{position:absolute;top:20px;right:26px;color:#cbd5e1;font-size:26px;line-height:1}
+
+  .proto-tip{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;
+    display:flex;align-items:center;gap:10px;padding:9px 16px;border-radius:999px;
+    background:rgba(20,27,38,.92);border:1px solid var(--border-hi);color:var(--text2);
+    font-size:12.5px;backdrop-filter:blur(10px);white-space:nowrap;
+  }
+  .proto-tip b{color:var(--accent)}
+  html[data-theme="light"] .proto-tip{background:rgba(255,255,255,.94)}
+
+  /* 竖屏 27 寸（1080×1920）：双列，卡片加厚留白 */
+  @media (min-width:1000px) and (max-width:1200px){
+    .wrap{max-width:1100px;padding:0 22px 80px}
+    .card{padding:20px 22px 18px;border-radius:20px}
+    header{padding:16px 2px}
+  }
+  @media (max-width:980px){
+    .wrap{padding:0 16px 70px}
+    .cols{columns:1}
+  }
+  @media (max-width:620px){
+    header{gap:9px;flex-wrap:wrap;row-gap:10px;padding:12px 2px}
+    .brand{font-size:16.5px;flex:1 1 auto;min-width:0}
+    .brand small{display:none}
+    .clock b{font-size:19px}
+    .clock span{display:none}
+    .pill{display:none}
+    .icon-btn{width:34px;height:34px;border-radius:9px}
+    .statusbar .chip.r{display:none}
+  }
+
+  /* ---------- 线上补充 ---------- */
+  .pill.bad{color:#fca5a5;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.1)}
+  .pill.bad .dot{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.16)}
+  .card{animation-fill-mode:both}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">🏠</div>
+      <div>家庭通知中控台<small>FAMILY NOTICE CONSOLE</small></div>
+    </div>
+    <div class="clock"><b id="now">--:--</b><span id="date"></span></div>
+    <span class="pill" id="conn"><span class="dot"></span><span id="connText">连接中</span></span>
+    <button class="icon-btn on" id="voice" title="语音播报">🔊</button>
+    <button class="icon-btn" id="theme" title="切换主题">🌙</button>
+    <a class="icon-btn" href="/admin" title="管理后台">⚙️</a>
+  </header>
+
+  <div class="statusbar">
+    <span class="chip" id="chipTotal">共 0 条</span>
+    <span class="chip" id="chipPin">📌 常驻 0 条</span>
+    <span class="chip" id="chipUpdated">暂无消息</span>
+    <span class="chip" id="chipSender">发送人 0 位</span>
+    <span class="chip r" id="chipTip">自动刷新</span>
+  </div>
+
+  <div id="board"></div>
+</div>
+
+<div class="lb" id="lb"><span class="close">✕</span><img id="lbimg" alt=""></div>
+
+<script>
+/* ================= 家庭通知中控台 · 看板 ================= */
+"use strict";
+
+const $ = (s) => document.querySelector(s);
+const html = document.documentElement;
+
+let CFG = {
+  refresh_sec: 3, theme: "dark", cols: "auto", show_sender: 1, show_group: 0,
+  speak_default: 1, speak_rate: 1.05, autoscroll: 0, autoscroll_sec: 30,
+  board_limit: 20, pin_limit: 5
+};
+let TAGS = {};
+let MSGS = [];
+let PINNED = [];
+let lastSig = "";
+let lastMaxId = 0;
+let booted = false;
+let voiceOn = true;
+let failCount = 0;
+let pollTimer = null;
+let scrollTimer = null;
+
+/* ---------- 工具 ---------- */
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s == null ? "" : String(s);
+  return d.innerHTML;
+}
+function hashHue(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+function avatarHTML(name) {
+  const h = hashHue(name);
+  const bg = `linear-gradient(145deg,hsl(${h} 56% 54%),hsl(${(h + 28) % 360} 60% 43%))`;
+  return `<span class="av" style="background:${bg}" title="${esc(name)}">${esc(name.slice(0, 1))}</span>`;
+}
+function sizeClass(t) {
+  const n = (t || "").replace(/\s/g, "").length;
+  if (n <= 12) return "lg";
+  if (n <= 28) return "md";
+  if (n <= 60) return "sm";
+  return "xs";
+}
+function pad(n) { return String(n).padStart(2, "0"); }
+function hhmm(ts) {
+  const d = new Date(ts * 1000);
+  return pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+function dayLabel(ts) {
+  const d = new Date(ts * 1000), n = new Date();
+  const a = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const b = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  const diff = Math.round((b - a) / 86400000);
+  if (diff <= 0) return "今天";
+  if (diff === 1) return "昨天";
+  if (diff < 7) return "周" + "日一二三四五六"[d.getDay()];
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日";
+}
+
+/* ---------- 主题 ---------- */
+function applyTheme() {
+  const q = new URLSearchParams(location.search).get("theme");
+  const t = q || localStorage.getItem("ntheme") || CFG.theme || "dark";
+  html.setAttribute("data-theme", t === "light" ? "light" : "dark");
+  const btn = $("#theme");
+  if (btn) btn.textContent = t === "light" ? "☀️" : "🌙";
+}
+
+/* ---------- 列数 ---------- */
+function applyCols() {
+  const q = new URLSearchParams(location.search).get("cols");
+  const c = q || String(CFG.cols || "auto");
+  if (c === "1" || c === "2") html.style.setProperty("--cols", c);
+  else html.style.removeProperty("--cols");
+}
+
+/* ---------- 卡片 ---------- */
+function makeCard(m, isNew, showGrp) {
+  const t = TAGS[m.tag] || TAGS["普通通知"] || {};
+  const color = t.color || m.color || "#64748b";
+  const emoji = t.emoji || "💬";
+
+  const card = document.createElement("article");
+  card.className = "card" + (isNew ? " is-new" : "") + (m.pinned ? " pinned" : "");
+  card.style.setProperty("--c", color);
+  card.dataset.id = m.id;
+
+  const head = document.createElement("div");
+  head.className = "card-head";
+  head.innerHTML =
+    `<span class="badge"><span class="emoji">${esc(emoji)}</span>${esc(m.tag)}</span>` +
+    (m.pinned ? '<span class="pin-tag">📌 常驻</span>' : "") +
+    `<span class="time">${esc(m.ts ? hhmm(m.ts) : "")}</span>`;
+  card.appendChild(head);
+
+  if (m.image) {
+    const shot = document.createElement("div");
+    shot.className = "shot";
+    const frame = document.createElement("div");
+    frame.className = "frame";
+    const img = document.createElement("img");
+    img.src = "/" + String(m.image).replace(/^\/+/, "");
+    img.loading = "lazy";
+    img.alt = "通知图片";
+    img.title = "点击查看大图";
+    img.onclick = () => {
+      $("#lbimg").src = img.src;
+      $("#lb").classList.add("show");
+    };
+    img.onerror = () => { frame.style.display = "none"; };
+    frame.appendChild(img);
+    shot.appendChild(frame);
+    card.appendChild(shot);
+  }
+
+  if (m.content) {
+    const text = document.createElement("div");
+    text.className = "text " + sizeClass(m.content);
+    text.textContent = m.content;
+    card.appendChild(text);
+  }
+
+  if (CFG.show_sender || (showGrp && m.group)) {
+    const who = document.createElement("div");
+    who.className = "who";
+    const nm = (m.sender || "").trim();
+    let inner = "";
+    if (CFG.show_sender) {
+      inner += avatarHTML(nm || "未署名") +
+        `<span class="nm">${esc(nm || "未署名")}</span>`;
+    }
+    if (showGrp && m.group) {
+      inner += `<span class="grp" title="${esc(m.group)}">${esc(m.group)}</span>`;
+    }
+    who.innerHTML = inner;
+    card.appendChild(who);
+  }
+  return card;
+}
+
+/* ---------- 渲染 ---------- */
+function render() {
+  const board = $("#board");
+  board.innerHTML = "";
+
+  if (!PINNED.length && !MSGS.length) {
+    board.innerHTML =
+      '<div class="empty-state"><div class="ico">📭</div><h3>还没有通知</h3>' +
+      "<p>在钉钉群里 @机器人 说一句话就会出现在这里<br>" +
+      '支持 <code>#作业: 数学第12页</code> 或 <code>#采购 牛奶</code></p></div>';
+    return;
+  }
+
+  let first = true;
+
+  if (PINNED.length) {
+    const sec = document.createElement("section");
+    sec.className = "pin-sec";
+    const head = document.createElement("div");
+    head.className = "pin-head";
+    head.innerHTML = `<span>📌 常驻看板 · ${PINNED.length}</span><span class="ln"></span>`;
+    sec.appendChild(head);
+    const cols = document.createElement("div");
+    cols.className = "cols";
+    sec.appendChild(cols);
+    board.appendChild(sec);
+    let lastG = null;
+    PINNED.forEach((m, i) => {
+      const showG = !!m.group && m.group !== lastG;
+      lastG = m.group || lastG;
+      cols.appendChild(makeCard(m, false, showG));
+    });
+    first = false;
+  }
+
+  let curDay = null, colsEl = null, lastGrp = null;
+  MSGS.forEach((m, i) => {
+    const d = dayLabel(m.ts);
+    if (d !== curDay) {
+      curDay = d;
+      const sec = document.createElement("section");
+      sec.className = "group";
+      const h = document.createElement("div");
+      h.className = "day";
+      h.textContent = d;
+      sec.appendChild(h);
+      colsEl = document.createElement("div");
+      colsEl.className = "cols";
+      sec.appendChild(colsEl);
+      board.appendChild(sec);
+    }
+    const showG = !!m.group && m.group !== lastGrp;
+    lastGrp = m.group || lastGrp;
+    colsEl.appendChild(makeCard(m, first && i === 0, showG));
+    first = false;
+  });
+}
+
+/* ---------- 状态条 ---------- */
+function updateChips() {
+  const total = MSGS.length + PINNED.length;
+  $("#chipTotal").textContent = `共 ${total} 条`;
+  $("#chipPin").textContent = `📌 常驻 ${PINNED.length} 条`;
+  const newest = Math.max(0, ...MSGS.map(m => m.ts), ...PINNED.map(m => m.ts));
+  $("#chipUpdated").textContent = newest ? "最后更新 " + hhmm(newest) : "暂无消息";
+  const senders = new Set([...MSGS, ...PINNED].map(m => (m.sender || "").trim()).filter(Boolean));
+  $("#chipSender").textContent = `发送人 ${senders.size} 位`;
+  $("#chipTip").textContent = `${CFG.refresh_sec} 秒自动刷新`;
+}
+
+/* ---------- 语音 ---------- */
+function speak(m) {
+  if (!voiceOn || !window.speechSynthesis) return;
+  const t = TAGS[m.tag] || {};
+  if (t.speak === 0 || t.speak === false) return;
+  if (!m.content) return;
+  let body = m.content.replace(/\s+/g, " ").slice(0, 120);
+  const nm = (m.sender || "").trim();
+  const text = [m.tag, nm, body].filter(Boolean).join("，");
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-CN";
+    u.rate = Number(CFG.speak_rate) || 1.05;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ---------- 自动滚动 ---------- */
+function setupScroll() {
+  if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null; }
+  if (!Number(CFG.autoscroll)) return;
+  const step = () => {
+    const h = document.documentElement;
+    if (h.scrollTop + window.innerHeight >= h.scrollHeight - 8) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      window.scrollBy({ top: Math.round(window.innerHeight * 0.85), behavior: "smooth" });
+    }
+  };
+  scrollTimer = setInterval(step, Math.max(5, Number(CFG.autoscroll_sec) || 30) * 1000);
+}
+
+/* ---------- 连接状态 ---------- */
+function setConn(ok) {
+  const pill = $("#conn");
+  if (!pill) return;
+  pill.classList.toggle("bad", !ok);
+  $("#connText").textContent = ok ? "已连接" : "连接中断";
+}
+
+/* ---------- 拉数据 ---------- */
+async function pull() {
+  try {
+    const r = await fetch("/api/board", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if (j.code !== 200) throw new Error("bad code");
+
+    const oldRefresh = CFG.refresh_sec;
+    CFG = Object.assign(CFG, j.config || {});
+    TAGS = {};
+    (j.tags || []).forEach(t => { TAGS[t.name] = t; });
+    PINNED = j.pinned || [];
+    MSGS = j.data || [];
+
+    const sig = JSON.stringify([
+      PINNED.map(m => [m.id, m.pinned, m.image]),
+      MSGS.map(m => [m.id, m.content, m.image, m.ts, m.sender, m.tag])
+    ]);
+
+    if (sig !== lastSig) {
+      render();
+      updateChips();
+      lastSig = sig;
+    }
+
+    const maxId = Math.max(0, ...MSGS.map(m => m.id), ...PINNED.map(m => m.id));
+    if (booted && maxId > lastMaxId) {
+      const fresh = [...MSGS, ...PINNED].filter(m => m.id > lastMaxId).sort((a, b) => b.id - a.id);
+      if (fresh.length) speak(fresh[0]);
+    }
+    lastMaxId = Math.max(lastMaxId, maxId);
+    booted = true;
+
+    if (Number(CFG.refresh_sec) !== Number(oldRefresh)) startPolling();
+    setConn(true);
+    failCount = 0;
+  } catch (e) {
+    failCount++;
+    if (failCount >= 2) setConn(false);
+  }
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pull, Math.max(1, Number(CFG.refresh_sec) || 3) * 1000);
+}
+
+/* ---------- 时钟 ---------- */
+function tick() {
+  const d = new Date();
+  const n = $("#now"), dt = $("#date");
+  if (n) n.textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  if (dt) dt.textContent = `${d.getMonth() + 1}月${d.getDate()}日 周${"日一二三四五六"[d.getDay()]}`;
+}
+
+/* ---------- 交互 ---------- */
+function bind() {
+  $("#lb").onclick = () => $("#lb").classList.remove("show");
+
+  $("#theme").onclick = () => {
+    const next = html.getAttribute("data-theme") === "light" ? "dark" : "light";
+    html.setAttribute("data-theme", next);
+    localStorage.setItem("ntheme", next);
+    $("#theme").textContent = next === "light" ? "☀️" : "🌙";
+  };
+
+  const v = $("#voice");
+  voiceOn = localStorage.getItem("nvoice") !== "0";
+  v.classList.toggle("on", voiceOn);
+  v.textContent = voiceOn ? "🔊" : "🔇";
+  v.onclick = () => {
+    voiceOn = !voiceOn;
+    localStorage.setItem("nvoice", voiceOn ? "1" : "0");
+    v.classList.toggle("on", voiceOn);
+    v.textContent = voiceOn ? "🔊" : "🔇";
+    if (!voiceOn && window.speechSynthesis) window.speechSynthesis.cancel();
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") $("#lb").classList.remove("show");
+  });
+}
+
+/* ---------- 启动 ---------- */
+tick();
+setInterval(tick, 10000);
+applyTheme();
+bind();
+pull().then(() => { applyCols(); setupScroll(); startPolling(); });
+
+</script>
+</body>
+</html>

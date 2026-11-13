@@ -1,0 +1,56 @@
+{
+  "_说明": "本文件仅列出管理后台可设置的所有配置项及默认值，作为部署参考。实际配置存储在 notify.db 中，请通过管理后台页面填写，不要将任何 Secret 写入文件或提交到仓库。Secret 字段（bot_app_secret / ha_token / wecom_secret / wecom_aes_key）必须留空，仅在后台填写。",
+  "_分类_机器人": {
+    "bot_app_key": "钉钉机器人 AppKey（后台填写）",
+    "bot_app_secret": "钉钉机器人 AppSecret（后台填写，留空）",
+    "dedup_window": "60",
+    "tag_max_len": "12",
+    "image_max_edge": "1920"
+  },
+  "_分类_消息与看板": {
+    "im_channel": "ding",
+    "theme": "dark",
+    "speak_default": "1",
+    "speak_rate": "1.05",
+    "show_sender": "1",
+    "show_group": "0",
+    "cols": "auto",
+    "autoscroll": "0",
+    "autoscroll_sec": "30",
+    "pin_limit": "5",
+    "retention_days": "0",
+    "board_limit": "20",
+    "refresh_sec": "3"
+  },
+  "_分类_企业微信": {
+    "wecom_corp_id": "",
+    "wecom_agent_id": "",
+    "wecom_secret": "",
+    "wecom_token": "",
+    "wecom_aes_key": ""
+  },
+  "_分类_HomeAssistant": {
+    "ha_base_url": "http://homeassistant.local:8123",
+    "ha_token": "",
+    "ha_interval": "30",
+    "ha_enabled": "1",
+    "ha_show_offline": "1",
+    "ha_show_zero_power": "1",
+    "ha_show_lights": "1",
+    "ha_show_climates": "1",
+    "ha_show_tv": "1",
+    "ha_lights_map": "",
+    "ha_climates_map": "",
+    "ha_tv_map": "",
+    "ha_sensor_map": ""
+  },
+  "_分类_天气": {
+    "weather_enabled": "1",
+    "weather_source": "ha",
+    "weather_ha_entity": "",
+    "weather_city_name": "",
+    "weather_city_code": "",
+    "weather_interval": "600",
+    "weather_show_range": "1"
+  }
+}
