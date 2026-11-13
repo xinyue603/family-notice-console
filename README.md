@@ -209,3 +209,17 @@ docker compose up -d
 ## 许可证
 
 本项目以 **MIT 许可证** 开源，详见 [LICENSE](./LICENSE)。
+
+---
+
+## ☕ 赞赏支持
+
+如果这个项目对你有帮助，可以请我喝杯咖啡，感谢支持！
+
+<div align="center">
+
+| 微信赞赏码 | 支付宝收款码 |
+| :---: | :---: |
+| <img src="assets/appreciate-wechat.jpg" width="220"> | <img src="assets/appreciate-alipay.jpg" width="220"> |
+
+</div>
